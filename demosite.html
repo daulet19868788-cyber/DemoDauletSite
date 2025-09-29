@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Daulet — Demo Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--bg:#071224;--card:#0f2738;--accent:#5de0c6;--muted:#9fb7c7}
+    *{box-sizing:border-box;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#061226 0%, #04101a 100%);color:#e6f6f5}
+    .wrap{max-width:1200px;margin:28px auto;padding:18px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,#2dd4bf,#60a5fa);display:flex;align-items:center;justify-content:center;font-weight:800;color:#042026;font-size:20px}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:8px;align-items:center}
+    .input{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.02);padding:10px 12px;border-radius:10px;color:#e6f6f5;min-width:200px}
+    .btn{background:var(--accent);color:#042026;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700}
+    .grid{display:grid;grid-template-columns:1fr 380px;gap:18px;margin-top:20px;align-items:start}
+    .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,10,0.6)}
+    .feed-item{padding:12px;border-radius:10px;margin-bottom:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02))}
+    .small{color:var(--muted);font-size:13px}
+    .controls-row{display:flex;gap:8px;align-items:center;margin-top:10px}
+    .linkbtn{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:8px;color:var(--muted);cursor:pointer}
+    /* modal */
+    .modal{position:fixed;inset:0;background:rgba(2,6,10,0.6);display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all .18s}
+    .modal.open{visibility:visible;opacity:1}
+    .modal-card{width:720px;max-width:94%;background:linear-gradient(180deg, #071c26, #031820);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .row{display:flex;gap:12px}
+    textarea{width:100%;min-height:110px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.02);color:#e6f6f5}
+    .footer{margin-top:14px;color:var(--muted);font-size:13px;text-align:center}
+    /* responsive */
+    @media(max-width:900px){.grid{grid-template-columns:1fr;}.controls{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo">D</div>
+        <div>
+          <h1>Daulet — Twitter/X MVP</h1>
+          <div class="subtitle">Feed • DM • AI replies — demo</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input id="people" class="input" placeholder="People (comma separated)"/>
+        <input id="keyword" class="input" placeholder="Keyword"/>
+        <button id="apply" class="btn">Apply</button>
+        <button id="openDm" class="linkbtn">Open DM</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div id="feed" class="feed-list"></div>
+          <div class="footer">Tip: click <em>AI Reply</em> to generate an editable suggestion; click <em>Message</em> to open DM editor.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="height:260px;display:flex;flex-direction:column;gap:12px;justify-content:space-between;align-items:stretch">
+          <div id="threebox" style="flex:1;border-radius:8px;overflow:hidden"></div>
+          <div style="display:flex;gap:8px">
+            <button id="fetch" class="btn" style="flex:1">Fetch / Refresh</button>
+            <button id="aiDemo" class="linkbtn">AI demo</button>
+            <button id="loadExt" class="linkbtn">Extension</button>
+          </div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="card">
+          <h3 style="margin:0 0 8px 0">Quick actions</h3>
+          <div class="small">Use DM to generate drafts and send. This demo uses local data / simple AI stub.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DM modal -->
+  <div id="modal" class="modal">
+    <div class="modal-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">DM Inbox</h3>
+        <div><button id="closeModal" class="linkbtn">Close</button></div>
+      </div>
+      <div style="height:12px"></div>
+      <div id="dmList" style="max-height:220px;overflow:auto"></div>
+      <div style="height:12px"></div>
+      <h4 style="margin:4px 0">AI Reply / Draft (editable)</h4>
+      <textarea id="draft"></textarea>
+      <div class="controls-row" style="margin-top:10px">
+        <button id="gen" class="btn">Generate</button>
+        <button id="send" class="btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+
+  <script>
+  /***********************
+   * Mock data & helpers *
+   ***********************/
+  const SAMPLE_FEED = [
+    {id:1,user:'Alice',text:'Loving the new product launch! #launch',time:'2h'},
+    {id:2,user:'Bob',text:'Quick tip: use caching to speed things up.',time:'4h'},
+    {id:3,user:'Charlie',text:'Anyone tried the new API? #api',time:'1d'},
+    {id:4,user:'Dana',text:'Design patterns are fun. #design',time:'3d'},
+    {id:5,user:'Eve',text:'Need help with integration of OAuth.',time:'6h'}
+  ];
+  const SAMPLE_DMS = [
+    {id:1,from:'Eve',message:'Hi, can you help with integration?'},
+    {id:2,from:'Frank',message:'Are you available for a quick consult?'}
+  ];
+
+  function simpleAISuggest(text){
+    if(!text) return "Thanks — I'll check and reply shortly.";
+    const t = text.toLowerCase();
+    if(t.includes('help')) return 'Sure — I can help. Could you share more details about the error?';
+    if(t.includes('available')) return 'Yes, I am available. When is good for you?';
+    return 'Thanks for reaching out — I will review and reply shortly.';
+  }
+
+  /***********************
+   * Feed rendering
+   ***********************/
+  const feedEl = document.getElementById('feed');
+  function renderFeed(items){
+    feedEl.innerHTML = '';
+    if(!items.length){ feedEl.innerHTML = '<div class="small">No posts found.</div>'; return; }
+    items.forEach(it=>{
+      const div = document.createElement('div');
+      div.className = 'feed-item';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><strong>${it.user}</strong><div class="small">${it.time}</div></div>
+          <div class="small">…</div>
+        </div>
+        <p style="margin-top:8px">${it.text}</p>
+        <div class="controls-row">
+          <button class="linkbtn" onclick="openDMWith('${it.user.replace(/'/g,"\\'")}')">Message</button>
+          <button class="linkbtn" onclick="aiForPost('${encodeURIComponent(it.text)}')">AI Reply</button>
+        </div>
+      `;
+      feedEl.appendChild(div);
+    });
+  }
+
+  function loadFeed(){
+    // apply filters locally (mock)
+    const people = document.getElementById('people').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const keyword = document.getElementById('keyword').value.trim().toLowerCase();
+    let items = SAMPLE_FEED.slice();
+    if(people.length) items = items.filter(it=> people.includes(it.user) );
+    if(keyword) items = items.filter(it=> it.text.toLowerCase().includes(keyword) );
+    renderFeed(items);
+  }
+
+  document.getElementById('apply').addEventListener('click', loadFeed);
+  document.getElementById('fetch').addEventListener('click', ()=>{ loadFeed(); alert('Refreshed (demo)'); });
+  window.addEventListener('load', loadFeed);
+
+  /***********************
+   * DM modal & AI logic
+   ***********************/
+  const modal = document.getElementById('modal');
+  const dmList = document.getElementById('dmList');
+  const draft = document.getElementById('draft');
+
+  function openModal(){ modal.classList.add('open'); renderDMs(); }
+  function closeModal(){ modal.classList.remove('open'); }
+
+  document.getElementById('openDm').addEventListener('click', openModal);
+  document.getElementById('closeModal').addEventListener('click', closeModal);
+
+  function renderDMs(){
+    dmList.innerHTML = '';
+    SAMPLE_DMS.forEach(dm=>{
+      const d = document.createElement('div');
+      d.className = 'feed-item';
+      d.innerHTML = `<strong>${dm.from}</strong>: <div style="margin-top:8px">${dm.message}</div><div class="controls-row"><button class="linkbtn" onclick="prefill('${dm.message.replace(/'/g,"\\'")}')">Reply</button></div>`;
+      dmList.appendChild(d);
+    });
+  }
+
+  function prefill(msg){ draft.value = '\\n\\nReplying to: ' + msg; openModal(); }
+
+  document.getElementById('gen').addEventListener('click', ()=>{
+    const text = draft.value || '';
+    draft.value = simpleAISuggest(text);
+  });
+
+  document.getElementById('send').addEventListener('click', ()=>{
+    const txt = draft.value || '';
+    if(!txt.trim()){ alert('Draft is empty'); return; }
+    alert('Message sent (demo):\\n' + txt);
+    draft.value = '';
+    closeModal();
+  });
+
+  window.openDMWith = function(user){
+    draft.value = 'Hi ' + user + ',\\n\\n';
+    openModal();
+  }
+  window.aiForPost = function(textEncoded){
+    const t = decodeURIComponent(textEncoded);
+    const s = simpleAISuggest(t);
+    if(confirm('AI suggestion:\\n\\n' + s + '\\n\\nOpen DM to edit/send?')){ draft.value = s; openModal(); }
+  }
+
+  /***********************
+   * Three.js scene
+   ***********************/
+  (function(){
+    const mount = document.getElementById('threebox');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, mount.clientWidth / mount.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    mount.appendChild(renderer.domElement);
+
+    const geometry = new THREE.TorusKnotGeometry(0.7, 0.22, 120, 16);
+    const material = new THREE.MeshStandardMaterial({color:0x5de0c6, roughness:0.25, metalness:0.6});
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+    dir.position.set(5,5,5);
+    scene.add(dir);
+    scene.add(new THREE.AmbientLight(0x404040, 0.9));
+
+    camera.position.z = 3.8;
+
+    function animate(){
+      requestAnimationFrame(animate);
+      mesh.rotation.y += 0.01;
+      mesh.rotation.x += 0.005;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', ()=> {
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
+      camera.aspect = mount.clientWidth / mount.clientHeight;
+      camera.updateProjectionMatrix();
+    });
+  })();
+  </script>
+</body>
+</html>
